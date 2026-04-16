@@ -1,5 +1,4 @@
 
-import { GoogleGenAI } from "@google/genai";
 import { AspectRatio, Resolution } from "../types";
 
 export const generateImageWithGemini = async (
@@ -8,67 +7,62 @@ export const generateImageWithGemini = async (
   resolution: Resolution,
   sourceImage?: { data: string, mimeType: string }
 ): Promise<string> => {
-  // Ensure user has selected a key for Nano Banana Pro (Gemini 3 Pro Image)
-  if (typeof window !== 'undefined' && (window as any).aistudio) {
-    const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-    if (!hasKey) {
-      await (window as any).aistudio.openSelectKey();
-    }
-  }
+  const apiKey = process.env.API_KEY || "";
+  const parts: any[] = [];
 
-  // Use the API Key from environment
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
-
-  try {
-    const parts: any[] = [];
-    
-    // If source image is provided, we are in "Edit" mode
-    if (sourceImage) {
-      parts.push({
-        inlineData: {
-          data: sourceImage.data.split(',')[1] || sourceImage.data,
-          mimeType: sourceImage.mimeType,
-        },
-      });
-    }
-    
-    parts.push({ text: prompt });
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
-      contents: { parts },
-      config: {
-        imageConfig: {
-          aspectRatio: aspectRatio,
-          imageSize: resolution as any,
-        },
+  if (sourceImage) {
+    parts.push({
+      inlineData: {
+        data: sourceImage.data.split(',')[1] || sourceImage.data,
+        mimeType: sourceImage.mimeType,
       },
     });
+  }
 
-    if (!response || !response.candidates || response.candidates.length === 0) {
+  parts.push({ text: prompt });
+
+  const body = {
+    contents: [{ parts }],
+    generationConfig: {
+      responseModalities: ["IMAGE", "TEXT"],
+      imageConfig: {
+        aspectRatio,
+        imageSize: resolution,
+      },
+    },
+  };
+
+  try {
+    const response = await fetch(
+      `/api-proxy/v1beta/models/gemini-3-pro-image-preview:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data?.error?.message || `Request failed: ${response.status}`);
+    }
+
+    if (!data.candidates || data.candidates.length === 0) {
       throw new Error("No image generated.");
     }
 
-    let imageUrl = '';
-    for (const part of response.candidates[0].content.parts) {
+    for (const part of data.candidates[0].content.parts) {
       if (part.inlineData) {
-        const base64EncodeString = part.inlineData.data;
-        imageUrl = `data:image/jpeg;base64,${base64EncodeString}`;
-        break;
+        return `data:image/jpeg;base64,${part.inlineData.data}`;
       }
     }
 
-    if (!imageUrl) {
-      throw new Error("Failed to extract image data from response.");
-    }
-
-    return imageUrl;
+    throw new Error("Failed to extract image data from response.");
   } catch (error: any) {
-    if (error.message?.includes("Requested entity was not found")) {
-        if (typeof window !== 'undefined' && (window as any).aistudio) {
-            await (window as any).aistudio.openSelectKey();
-        }
-    }
     console.error("Image Generation Error:", error);
     throw error;
   }

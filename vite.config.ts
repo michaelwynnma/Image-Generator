@@ -8,6 +8,14 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        proxy: {
+          '/api-proxy': {
+            target: 'https://api-aigw.corp.hongsong.club',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api-proxy/, ''),
+            secure: true,
+          },
+        },
       },
       plugins: [react()],
       define: {
