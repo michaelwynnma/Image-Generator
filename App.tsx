@@ -1,8 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { generateImageWithGemini } from './services/geminiService';
 import { AspectRatio, Resolution, GeneratedImage } from './types';
 import { SettingsCard, ToggleOption } from './components/SettingsCard';
+import ApiKeyModal from './components/ApiKeyModal';
+
+const API_KEY_STORAGE = 'visionary_api_key';
 
 const App: React.FC = () => {
   const [prompt, setPrompt] = useState('');
@@ -13,6 +16,14 @@ const App: React.FC = () => {
   const [editingSource, setEditingSource] = useState<GeneratedImage | null>(null);
   const [history, setHistory] = useState<GeneratedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem(API_KEY_STORAGE) || '');
+  const [showKeyModal, setShowKeyModal] = useState<boolean>(() => !localStorage.getItem(API_KEY_STORAGE));
+
+  const handleSaveKey = (key: string) => {
+    localStorage.setItem(API_KEY_STORAGE, key);
+    setApiKey(key);
+    setShowKeyModal(false);
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -29,10 +40,11 @@ const App: React.FC = () => {
         : undefined;
 
       const imageUrl = await generateImageWithGemini(
-        prompt, 
-        aspectRatio, 
-        resolution, 
-        sourceImageParam
+        prompt,
+        aspectRatio,
+        resolution,
+        sourceImageParam,
+        apiKey
       );
       
       const newImage: GeneratedImage = {
@@ -77,6 +89,13 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-20">
+      {showKeyModal && (
+        <ApiKeyModal
+          onSave={handleSaveKey}
+          onClose={apiKey ? () => setShowKeyModal(false) : undefined}
+          existingKey={apiKey}
+        />
+      )}
       {/* Header */}
       <header className="sticky top-0 z-50 glass-panel border-b border-slate-800 mb-8 px-6 py-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -90,11 +109,22 @@ const App: React.FC = () => {
               Visionary <span className="gradient-text">AI</span>
             </h1>
           </div>
-          <div className="hidden md:flex items-center gap-2 text-sm text-slate-400">
-            <span className="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-xs font-mono">Nano Banana Pro</span>
-            <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">
-              Billing Docs
-            </a>
+          <div className="flex items-center gap-3 text-sm text-slate-400">
+            <span className="hidden md:inline px-2 py-1 bg-slate-800 rounded border border-slate-700 text-xs font-mono">Nano Banana Pro</span>
+            <button
+              onClick={() => setShowKeyModal(true)}
+              title="Set API Key"
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                apiKey
+                  ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-400 hover:bg-emerald-900/50'
+                  : 'bg-red-900/30 border-red-700/50 text-red-400 hover:bg-red-900/50 animate-pulse'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              {apiKey ? 'API Key Set' : 'Set API Key'}
+            </button>
           </div>
         </div>
       </header>

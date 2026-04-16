@@ -5,9 +5,10 @@ export const generateImageWithGemini = async (
   prompt: string,
   aspectRatio: AspectRatio,
   resolution: Resolution,
-  sourceImage?: { data: string, mimeType: string }
+  sourceImage?: { data: string, mimeType: string },
+  userApiKey?: string
 ): Promise<string> => {
-  const apiKey = process.env.API_KEY || "";
+  const apiKey = userApiKey || process.env.API_KEY || "";
   const parts: any[] = [];
 
   if (sourceImage) {
